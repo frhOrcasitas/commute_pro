@@ -1,7 +1,7 @@
-import Image from "next/image";
 
-export default function Home() {
-  return (
+function login() {
+
+    return (
         <section className="min-h-screen flex items-center justify-center font-mono bg-gray-100">
             
 
@@ -14,5 +14,5 @@ export default function Home() {
                 </div>
             </div>
         </section>
-  );
+    )
 }
