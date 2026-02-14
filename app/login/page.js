@@ -1,3 +1,5 @@
+import Image from "next/image";
+import Link from "next/link";
 
 function login() {
 
@@ -16,3 +18,5 @@ function login() {
         </section>
     )
 }
+
+export default login;
