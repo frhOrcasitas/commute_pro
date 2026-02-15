@@ -31,7 +31,9 @@ function login() {
                     
                     <div className="w-full flex flex-row gap-20 justify-center">
                         <button className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300">Register</button>
-                        <button className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300">Login</button>
+                        <Link href="/dashboard" className="text-white hover:text-gray-300 transition duration-300">
+                             <button className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300">Login</button>
+                        </Link>
                     </div>
                     
                 </div>
