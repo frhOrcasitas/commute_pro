@@ -1,13 +1,20 @@
-import Image from "next/image";
-import Link from "next/link";
+"use client";
 
-function log_commute() {
+import dynamic from "next/dynamic";
 
-    return (
-        <main className="flex min-h-screen flex-col items-center justify-center bg-gray-800 text-gray-100">
-            <h1 className="text-4xl font-bold mb-4">Welcome to your Log Commute</h1>
-        </main>
-    )
+const CommuteMap = dynamic(
+  () => import("../../components/CommuteMap"), // Use two sets of dots instead of three
+  { ssr: false }
+);
+
+export default function LogCommute() {
+  return (
+    <main className="min-h-screen bg-gray-50 p-8">
+      <h1 className="text-2xl font-semibold text-gray-900 mb-6">
+        Log Commute
+      </h1>
+
+      <CommuteMap />
+    </main>
+  );
 }
-
-export default log_commute;
