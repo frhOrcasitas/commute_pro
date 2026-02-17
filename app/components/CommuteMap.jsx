@@ -29,57 +29,73 @@ function LocationSelector({ setPoints }) {
   return null;
 }
 
-// 3. Helper: Routing Logic (Simplified and Stabilized)
+// 3. Helper: Routing Logic (Stabilized with Manual Cleanup)
 function Routing({ points, setRoadMetrics }) {
   const map = useMap();
-  const routingRef = useRef(null);
+  const routingControlRef = useRef(null);
 
   useEffect(() => {
-    if (!map) return;
+    if (!map || points.length !== 2) return;
 
-    // Create control only once
-    if (!routingRef.current) {
-      routingRef.current = L.Routing.control({
-        waypoints: [],
-        routeWhileDragging: false,
-        addWaypoints: false,
-        draggableWaypoints: false,
-        show: false,
-        createMarker: () => null,
-        lineOptions: {
-          styles: [{ color: "#2563eb", weight: 6, opacity: 0.8 }],
-        },
-      }).addTo(map);
-
-      routingRef.current.on("routesfound", (e) => {
-        if (e.routes && e.routes[0]) {
-          const summary = e.routes[0].summary;
-          setRoadMetrics({
-            distance: summary.totalDistance,
-            time: summary.totalTime,
-          });
-        }
-      });
-    }
-
-    // Update waypoints instead of recreating control
-    if (points.length === 2) {
-      routingRef.current.setWaypoints([
+    // Create the control
+    const routingControl = L.Routing.control({
+      waypoints: [
         L.latLng(points[0][0], points[0][1]),
         L.latLng(points[1][0], points[1][1]),
-      ]);
-    } else {
-      routingRef.current.setWaypoints([]);
-      setRoadMetrics({ distance: 0, time: 0 });
+      ],
+      routeWhileDragging: false,
+      addWaypoints: false,
+      draggableWaypoints: false,
+      show: false,
+      containerClassName: 'hidden', 
+      createMarker: () => null,
+      lineOptions: {
+        styles: [{ color: "#2563eb", weight: 6, opacity: 0.8 }]
+      }
+    });
+
+    try {
+      routingControl.addTo(map);
+      routingControlRef.current = routingControl;
+    } catch (err) {
+      console.warn("Routing initialization prevented a crash.");
     }
 
-    // Cleanup only when component fully unmounts
-    return () => {};
+    routingControl.on('routesfound', (e) => {
+      if (e.routes && e.routes[0]) {
+        const summary = e.routes[0].summary;
+        setRoadMetrics({
+          distance: summary.totalDistance,
+          time: summary.totalTime
+        });
+      }
+    });
+
+    // CRITICAL FIX: The Safe Cleanup
+    return () => {
+      if (routingControlRef.current && map) {
+        const ctrl = routingControlRef.current;
+        // Remove listeners first
+        ctrl.getPlan().setWaypoints([]);
+        ctrl.off('routesfound');
+        
+        setTimeout(() => {
+          try {
+            // Check if map still exists and container is attached
+            if (map && map._container) {
+              map.removeControl(ctrl);
+            }
+          } catch (e) {
+            // This catches the 'removeLayer' of null error silently
+            console.log("Routing cleanup suppressed a potential crash.");
+          }
+        }, 0);
+      }
+    };
   }, [map, points, setRoadMetrics]);
 
   return null;
 }
-
 
 // 4. MAIN COMPONENT
 export default function CommuteMap() {
@@ -95,6 +111,12 @@ export default function CommuteMap() {
 
   return (
     <div className="space-y-6">
+      <style jsx global>{`
+        .leaflet-routing-container, .leaflet-routing-error {
+          display: none !important;
+        }
+      `}</style>
+
       <div className="relative overflow-hidden rounded-[2.5rem] border-4 border-zinc-200 shadow-sm bg-white">
         <MapContainer
           center={[3.1390, 101.6869]}
@@ -109,9 +131,6 @@ export default function CommuteMap() {
             <Marker key={`marker-${index}`} position={position} />
           ))}
 
-          {/* THE BIG FIX: We use a key based on the points' coordinates. 
-              This forces React to safely 'reset' the routing engine 
-              whenever the points change. */}
           {points.length === 2 && (
             <Routing 
               points={points} 
@@ -127,7 +146,7 @@ export default function CommuteMap() {
                 setRoadMetrics({ distance: 0, time: 0 });
                 setPoints([]);
               }}
-              className="bg-white px-6 py-2 rounded-full shadow-xl text-[10px] font-black text-red-500 border border-zinc-100"
+              className="bg-white px-6 py-2 rounded-full shadow-xl text-[10px] font-black text-red-500 border border-zinc-100 hover:bg-red-50 transition-colors"
             >
               RESET POINTS
             </button>
@@ -135,15 +154,18 @@ export default function CommuteMap() {
         </div>
       </div>
 
-      {/* Metrics Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-black">
         <div className="bg-zinc-100 p-8 rounded-[2rem] border border-zinc-200 flex flex-col items-center">
           <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-2">Distance</span>
-          <div className="text-3xl font-black">{(roadMetrics.distance / 1000).toFixed(2)} km</div>
+          <div className="text-3xl font-black">
+            {(roadMetrics.distance / 1000).toFixed(2)} <span className="text-sm font-normal">km</span>
+          </div>
         </div>
-        <div className="bg-zinc-800 p-8 rounded-[2rem] text-white flex flex-col items-center">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Time</span>
-          <div className="text-3xl font-black text-emerald-400">{Math.floor(roadMetrics.time / 60)} mins</div>
+        <div className="bg-zinc-800 p-8 rounded-[2rem] text-white flex flex-col items-center shadow-lg">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Est. Time</span>
+          <div className="text-3xl font-black text-emerald-400">
+            {Math.floor(roadMetrics.time / 60)} <span className="text-sm font-normal text-white">mins</span>
+          </div>
         </div>
       </div>
     </div>
