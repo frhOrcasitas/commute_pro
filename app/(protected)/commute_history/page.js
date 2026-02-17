@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 const fakeCommutes = [
   {
@@ -45,42 +45,66 @@ const trafficStyles = {
 };
 
 export default function CommuteHistory() {
+  const [commutes, setCommutes] = useState(fakeCommutes);
   const [openId, setOpenId] = useState(null);
+  const [search, setSearch] = useState("");
+
+  // 🔎 Real Search Filter
+  const filteredCommutes = useMemo(() => {
+    return commutes.filter((c) =>
+      `${c.start} ${c.end} ${c.date} ${c.traffic}`
+        .toLowerCase()
+        .includes(search.toLowerCase())
+    );
+  }, [search, commutes]);
 
   // Group by date
-  const grouped = fakeCommutes.reduce((acc, commute) => {
+  const grouped = filteredCommutes.reduce((acc, commute) => {
     acc[commute.date] = acc[commute.date] || [];
     acc[commute.date].push(commute);
     return acc;
   }, {});
 
+  const handleDelete = (id) => {
+    setCommutes((prev) => prev.filter((c) => c.id !== id));
+    setOpenId(null);
+  };
+
   return (
     <div className="p-8 space-y-10 text-black">
       <h1 className="text-3xl font-bold">Commute History</h1>
 
-      {/* Filter (UI only for now) */}
+      {/* Search */}
       <div className="flex justify-between items-center bg-zinc-100 rounded-xl px-4 py-3">
         <input
-          placeholder="Filter by..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by location, date, traffic..."
           className="bg-transparent outline-none text-sm w-full"
         />
-        <span className="text-zinc-400">▼</span>
       </div>
 
       {/* Date Groups */}
+      {Object.keys(grouped).length === 0 && (
+        <p className="text-zinc-400 text-sm">No results found.</p>
+      )}
+
       {Object.keys(grouped).map((date) => (
         <div key={date} className="space-y-4">
           <h3 className="text-xs uppercase tracking-widest text-zinc-400">
             {date}
           </h3>
 
-          {grouped[date].map((commute) => {
+          {grouped[date].map((commute, index) => {
             const isOpen = openId === commute.id;
 
             return (
               <div
                 key={commute.id}
-                className="bg-white rounded-2xl border border-zinc-200 p-5 transition-all duration-300 hover:shadow-md"
+                className="bg-white rounded-2xl border border-zinc-200 p-5 transition-all duration-500 hover:shadow-md animate-slideIn"
+                style={{
+                  animationDelay: `${index * 60}ms`,
+                }}
               >
                 {/* Header */}
                 <div
@@ -114,10 +138,10 @@ export default function CommuteHistory() {
                 {/* Expandable Section */}
                 <div
                   className={`transition-all duration-300 overflow-hidden ${
-                    isOpen ? "max-h-96 mt-4" : "max-h-0"
+                    isOpen ? "max-h-96 mt-4 opacity-100" : "max-h-0 opacity-0"
                   }`}
                 >
-                  <div className="grid grid-cols-2 gap-6 text-sm text-zinc-700">
+                  <div className="grid grid-cols-2 gap-6 text-sm text-zinc-700 pt-4">
                     <div>
                       <p><strong>Duration:</strong> {commute.duration} min</p>
                       <p><strong>Starting Point:</strong> {commute.start}</p>
@@ -127,6 +151,14 @@ export default function CommuteHistory() {
                     <div>
                       <p><strong>Traffic:</strong> {commute.traffic}</p>
                       <p><strong>Notes:</strong> {commute.notes || "—"}</p>
+
+                      {/* 🗑 Delete Button (only when open) */}
+                      <button
+                        onClick={() => handleDelete(commute.id)}
+                        className="mt-4 text-sm text-red-500 font-semibold hover:text-red-700 transition"
+                      >
+                        Delete Commute
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -135,6 +167,24 @@ export default function CommuteHistory() {
           })}
         </div>
       ))}
+
+      {/* Slide-in animation */}
+      <style jsx>{`
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .animate-slideIn {
+          animation: slideIn 0.4s ease forwards;
+        }
+      `}</style>
     </div>
   );
 }
