@@ -13,6 +13,7 @@
     "leaflet": "^1.9.4",
     "leaflet-routing-machine": "^3.2.12",
     "lucide-react": "^0.564.0",
+    "mysql2": "^3.17.2",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",

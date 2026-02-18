@@ -1,42 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
-
-const fakeCommutes = [
-  {
-    id: 1,
-    date: "31 Jan 2026",
-    startTime: "7:15",
-    endTime: "8:45",
-    duration: 90,
-    start: "Home",
-    end: "University",
-    traffic: "High",
-    notes: "Heavy jam near highway.",
-  },
-  {
-    id: 2,
-    date: "30 Jan 2026",
-    startTime: "18:04",
-    endTime: "18:45",
-    duration: 41,
-    start: "University",
-    end: "Home",
-    traffic: "Medium",
-    notes: "",
-  },
-  {
-    id: 3,
-    date: "30 Jan 2026",
-    startTime: "7:20",
-    endTime: "8:30",
-    duration: 70,
-    start: "Home",
-    end: "University",
-    traffic: "Low",
-    notes: "",
-  },
-];
+import { useState, useMemo, useEffect } from "react";
 
 const trafficStyles = {
   Low: "bg-green-100 text-green-600",
@@ -45,9 +9,28 @@ const trafficStyles = {
 };
 
 export default function CommuteHistory() {
-  const [commutes, setCommutes] = useState(fakeCommutes);
+  const [commutes, setCommutes] = useState([]);
   const [openId, setOpenId] = useState(null);
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    fetch("/api/commutes")
+      .then(res => res.json())
+      .then(data => {
+        const formatted = data.map(c => ({
+          id: c.id,
+          date: new Date(c.date).toDateString(),
+          startTime: c.start_time,
+          endTime: c.end_time,
+          duration: c.duration_minutes,
+          start: c.start_location,
+          traffic: c.traffic_level,
+          notes: c.notes,
+        }));
+
+        setCommutes(formatted);
+      });
+  }, []);
 
   // 🔎 Real Search Filter
   const filteredCommutes = useMemo(() => {
@@ -65,9 +48,12 @@ export default function CommuteHistory() {
     return acc;
   }, {});
 
-  const handleDelete = (id) => {
-    setCommutes((prev) => prev.filter((c) => c.id !== id));
-    setOpenId(null);
+  const handleDelete = async (id) => {
+    await fetch("api/commutes", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json"},
+      body: JSON.stringify({ id }),
+    })
   };
 
   return (
