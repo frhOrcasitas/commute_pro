@@ -21,28 +21,35 @@ export default function LogCommute() {
 
   const handleSave = async () => {
     const durationMinutes =
-      (new Date(`1970-01-01T${endTime}`) - 
+      (new Date(`1970-01-01T${endTime}`) -
         new Date(`1970-01-01T${startTime}`)) / 60000;
 
     await fetch("/api/commutes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify ({
+      body: JSON.stringify({
         user_id: 1,
         date,
         start_time: startTime,
         end_time: endTime,
         duration_minutes: durationMinutes,
-        start_location: startPoint?.name || "Unknown",
+
+        start_location: startPoint?.name || null,
+        end_location: endPoint?.name || null,
+
+        start_lat: startPoint?.lat || null,
         start_lng: startPoint?.lng || null,
         end_lat: endPoint?.lat || null,
         end_lng: endPoint?.lng || null,
-        traffic_level: trafficLevel,
+
+        traffic_level: trafficLevel || null,
         notes,
       }),
     });
+
     alert("Commute saved!");
   };
+
 
   return (
     <main className="min-h-screen bg-gray-50 p-8">
@@ -97,8 +104,12 @@ export default function LogCommute() {
 
               <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Traffic Level</label>
-                  <select className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700">
-                    <option>Select traffic level</option>
+                  <select
+                    value={trafficLevel}
+                    onChange={(e) => setTrafficLevel(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
+                  >
+                    <option value="">Select traffic level</option>
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
                     <option value="High">High</option>

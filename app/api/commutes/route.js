@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import pool from "../../lib/db";
 
+/* ================= CREATE ================= */
 export async function POST(req) {
   try {
     const body = await req.json();
@@ -40,10 +41,10 @@ export async function POST(req) {
     const [result] = await pool.execute(
       `INSERT INTO tbl_commutes 
       (user_id, date, start_time, end_time, duration_minutes,
-      start_location, end_location,
-      start_lat, start_lng, end_lat, end_lng,
-      traffic_level, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       start_location, end_location,
+       start_lat, start_lng, end_lat, end_lng,
+       traffic_level, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       values
     );
 
@@ -61,30 +62,40 @@ export async function POST(req) {
   }
 }
 
-
+/* ================= READ ================= */
 export async function GET() {
-    try {
-        const [rows] = await pool.execute(
-            "SELECT * FROM tbl_commutes ORDER BY created_at DESC"
-        );
+  try {
+    const [rows] = await pool.execute(
+      "SELECT * FROM tbl_commutes ORDER BY created_at DESC"
+    );
 
-        return NextResponse.json(rows);
-    } catch (error) {
-        console.error(error);
-        return NextResponse.json({error: "Failed to fetch commutes"}, {status: 500});
-    }
+    return NextResponse.json(rows);
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { error: "Failed to fetch commutes" },
+      { status: 500 }
+    );
+  }
 }
 
+/* ================= DELETE ================= */
 export async function DELETE(req) {
-    try {
-        const { id } = await req.json();
+  try {
+    const { id } = await req.json();
 
-        await pool.execute("DELETE FROM tbl_commutes WHERE id = ?", [id]);
+    await pool.execute(
+      "DELETE FROM tbl_commutes WHERE id = ?",
+      [id]
+    );
 
-        return NextResponse.json({message: "Deleted Successfully" });
+    return NextResponse.json({ message: "Deleted successfully" });
 
-    } catch (error) {
-        console.error(error);
-        return NextResponse.json({ error: "Failed to delete commute" }, { status: 500 });
-    }
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { error: "Failed to delete commute" },
+      { status: 500 }
+    );
+  }
 }

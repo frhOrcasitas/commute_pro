@@ -23,7 +23,8 @@ export default function CommuteHistory() {
           startTime: c.start_time,
           endTime: c.end_time,
           duration: c.duration_minutes,
-          start: c.start_location,
+          start: c.start_location || "Unknown",
+          end: c.end_location || "Unknown",
           traffic: c.traffic_level,
           notes: c.notes,
         }));
@@ -31,6 +32,7 @@ export default function CommuteHistory() {
         setCommutes(formatted);
       });
   }, []);
+
 
   // 🔎 Real Search Filter
   const filteredCommutes = useMemo(() => {
@@ -49,12 +51,15 @@ export default function CommuteHistory() {
   }, {});
 
   const handleDelete = async (id) => {
-    await fetch("api/commutes", {
+    await fetch("/api/commutes", {
       method: "DELETE",
-      headers: { "Content-Type": "application/json"},
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
-    })
+    });
+
+    setCommutes(prev => prev.filter(c => c.id !== id));
   };
+
 
   return (
     <div className="p-8 space-y-10 text-black">
