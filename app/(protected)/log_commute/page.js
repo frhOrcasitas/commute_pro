@@ -94,12 +94,16 @@ export default function LogCommute() {
 
               <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Starting Point</label>
-                  <input type="text" placeholder="Selected from map" className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-gray-50"/>
+                  <input type="text" placeholder="Selected from map" className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-gray-50"
+                    value={startPoint?.name || ""}
+                    onChange={(e) => setStartPoint({ name: e.target.value}) } />
               </div>
 
               <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Ending Point</label>
-                  <input type="text" placeholder="Selected from map" className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-gray-50"/>
+                  <input type="text" placeholder="Selected from map" className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-gray-50"
+                    value={endPoint?.name || ""}
+                    onChange={(e) => setEndPoint({ name: e.target.value}) }/>
               </div>
 
               <div className="space-y-2">
