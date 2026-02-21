@@ -6,6 +6,8 @@ import { useState } from "react";
 import { supabase } from "@/app/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
+// needs fixing here. especially that it doesnt read an already existing account despite with correct credentials.
+
 function login() {
     const router = useRouter();
     const[email, setEmail] = useState("");
