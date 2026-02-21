@@ -52,7 +52,7 @@ export default function Home() {
             <p className="text-lg text-gray-600 max-w-md">Register here now! Or if you have already owned an account, login here!</p>
             <div className="flex items-center gap-4">
 
-                <Link href="/login" className="text-white hover:text-gray-300 transition duration-300">
+                <Link href="/register" className="text-white hover:text-gray-300 transition duration-300">
                     <button className="px-6 py-3 rounded-md transition bg-[#FFF8DE] hover:bg-[#FFF8DE]/90 text-[#576A8F] font-semibold mr-4">Register</button>
                 </Link>
 
