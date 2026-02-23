@@ -15,9 +15,19 @@ export default function Home() {
             </div>
         </nav>
 
-        <div className="flex flex-col items-center justify-center min-h-screen gap-6 text-center px-4">
-            <h1 className="text-6xl font-bold text-[#576A8F]">CommutePro</h1>
-            <p className="text-lg text-gray-600 max-w-md">The Commuter's Best Friend</p>
+        <div className="relative flex flex-col items-center justify-center min-h-screen gap-6 text-center px-4 overflow-hidden">
+            <Image
+                src="/bg.png"
+                alt="city background"
+                fill
+                className="object-cover brightness-[0.4]"
+                priority
+            />
+
+            <div className="relative z-10 flex flex-col items-center gap-6">
+                <h1 className="text-6xl font-bold text-white">CommutePro</h1>
+                <p className="text-lg text-gray-600 max-w-md">The Commuter's Best Friend</p>
+            </div>
         </div>
 
         <main className="py-12 bg-gray-100 flex flex-col items-center justify-center min-h-screen gap-6 text-center px-4">
@@ -48,6 +58,7 @@ export default function Home() {
         </main>
 
         <main className="flex flex-col items-center justify-center min-h-screen gap-6 text-center px-4">
+            
             <h1 className="text-6xl font-bold text-[#576A8F]">Ready to become a commuter pro?</h1>
             <p className="text-lg text-gray-600 max-w-md">Register here now! Or if you have already owned an account, login here!</p>
             <div className="flex items-center gap-4">
