@@ -65,11 +65,12 @@ export async function GET() {
     const { data, error } = await supabase
       .from("tbl_commutes")
       .select("*")
-      .order("created_at", { ascending: false});
+      .order("created_at", { ascending: false });
       
-      if (error) throw error;
+    if (error) throw error;
 
-    return NextResponse.json(data);
+    // Wrap it in an object so the frontend knows exactly what it's getting
+    return NextResponse.json({ data }); 
 
   } catch (error) {
     console.error(error);

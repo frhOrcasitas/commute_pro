@@ -56,67 +56,70 @@ function LocationSelector({ setPoints, onPointAdded }) {
   return null;
 }
 
-// 3. Helper: Routing Logic (Stabilized with Manual Cleanup)
+// 3. Helper: Routing Logic (The Bulletproof Version)
 function Routing({ points, setRoadMetrics }) {
   const map = useMap();
   const routingControlRef = useRef(null);
 
   useEffect(() => {
-    if (!map || points.length !== 2) return;
+    if (!map) return;
 
-    // Create the control
-    const routingControl = L.Routing.control({
-      waypoints: [
-        L.latLng(points[0][0], points[0][1]),
-        L.latLng(points[1][0], points[1][1]),
-      ],
-      routeWhileDragging: false,
-      addWaypoints: false,
-      draggableWaypoints: false,
-      show: false,
-      containerClassName: 'hidden', 
-      createMarker: () => null,
-      lineOptions: {
-        styles: [{ color: "#2563eb", weight: 6, opacity: 0.8 }]
-      }
-    });
+    // Initialize the control once and keep it alive
+    if (!routingControlRef.current) {
+      routingControlRef.current = L.Routing.control({
+        waypoints: [],
+        routeWhileDragging: false,
+        addWaypoints: false,
+        draggableWaypoints: false,
+        show: false,
+        containerClassName: 'hidden',
+        createMarker: () => null, // We use our own markers
+        lineOptions: {
+          styles: [{ color: "#2563eb", weight: 6, opacity: 0.8 }]
+        }
+      });
 
-    try {
-      routingControl.addTo(map);
-      routingControlRef.current = routingControl;
-    } catch (err) {
-      console.warn("Routing initialization prevented a crash.");
+      routingControlRef.current.on('routesfound', (e) => {
+        if (e.routes && e.routes[0]) {
+          const summary = e.routes[0].summary;
+          setRoadMetrics({
+            distance: summary.totalDistance,
+            time: summary.totalTime
+          });
+        }
+      });
+
+      // Add to map only once
+      routingControlRef.current.addTo(map);
     }
 
-    routingControl.on('routesfound', (e) => {
-      if (e.routes && e.routes[0]) {
-        const summary = e.routes[0].summary;
-        setRoadMetrics({
-          distance: summary.totalDistance,
-          time: summary.totalTime
-        });
-      }
-    });
+    // Update waypoints if we have exactly 2, otherwise clear
+    if (points.length === 2) {
+      const wp = [
+        L.latLng(points[0][0], points[0][1]),
+        L.latLng(points[1][0], points[1][1]),
+      ];
+      routingControlRef.current.setWaypoints(wp);
+    } else {
+      // Safely clear waypoints without removing the control
+      routingControlRef.current.setWaypoints([]);
+    }
 
-    // CRITICAL FIX: The Safe Cleanup
+    // Cleanup: Only happens when the whole Map is destroyed
     return () => {
-      if (routingControlRef.current && map) {
-        const ctrl = routingControlRef.current;
-        // Remove listeners first
-        ctrl.getPlan().setWaypoints([]);
-        ctrl.off('routesfound');
-        
-        setTimeout(() => {
-          try {
-            // Check if map still exists and container is attached
-            if (map && map._container) {
-              map.removeControl(ctrl);
-            }
-          } catch (e) {
-            // This catches the 'removeLayer' of null error silently
-            console.log("Routing cleanup suppressed a potential crash.");
+      if (routingControlRef.current) {
+        try {
+          const ctrl = routingControlRef.current;
+          ctrl.off('routesfound');
+          // Important: remove waypoints before removing control to stop pending calculations
+          ctrl.setWaypoints([]);
+          if (map && map.removeControl) {
+            map.removeControl(ctrl);
           }
-        }, 0);
+        } catch (e) {
+          console.warn("Cleaned up routing safely");
+        }
+        routingControlRef.current = null;
       }
     };
   }, [map, points, setRoadMetrics]);
@@ -135,20 +138,16 @@ export default function CommuteMap({ onPointAdded, setDistance, setDuration }) {
   }, []);
 
   useEffect(() => {
-    setTimeout(() => {
       if (setDistance) setDistance(roadMetrics.distance);
       if (setDuration) setDuration(roadMetrics.time);
-    }, 0);
-  }, [roadMetrics.distance, roadMetrics.time]);
+    }, [roadMetrics, setDistance, setDuration]);
 
   if (!isClient) return <div className="h-[450px] bg-zinc-100 animate-pulse rounded-[2.5rem]" />;
 
   return (
     <div className="space-y-6">
       <style jsx global>{`
-        .leaflet-routing-container, .leaflet-routing-error {
-          display: none !important;
-        }
+        .leaflet-routing-container { display: none !important; }
       `}</style>
 
       <div className="relative overflow-hidden rounded-[2.5rem] border-4 border-zinc-200 shadow-sm bg-white">
@@ -165,12 +164,11 @@ export default function CommuteMap({ onPointAdded, setDistance, setDuration }) {
             <Marker key={`marker-${index}`} position={position} />
           ))}
 
-          {points.length === 2 && (
+        
             <Routing 
               points={points} 
               setRoadMetrics={setRoadMetrics} 
             />
-          )}
         </MapContainer>
 
         <div className="absolute top-4 right-4 z-[1000]">

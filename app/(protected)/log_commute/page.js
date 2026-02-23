@@ -11,7 +11,7 @@ const CommuteMap = dynamic(
 
 export default function LogCommute() {
   const [userId, setUserId] = useState(null);
-  const [date, setDate] = useState("");
+  const [date_commuted, setDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [trafficLevel, setTrafficLevel] = useState("");
@@ -49,7 +49,7 @@ export default function LogCommute() {
 
   const handleSave = async () => {
     if (!userId) return alert("User not authenticated.");
-    if (!startPoint || !endPoint || !date) {
+    if (!startPoint || !endPoint || !date_commuted) {
       alert("Please select a route on the map and a date.");
       return;
     }
@@ -68,7 +68,7 @@ export default function LogCommute() {
     const { error } = await supabase.from("tbl_commutes").insert([
       {
         user_id: userId,
-        date,
+        date_commuted,
         start_time: startTime || null,
         end_time: endTime || null,
         duration_minutes: durationMinutes,
@@ -136,14 +136,16 @@ export default function LogCommute() {
 
               <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Starting Point</label>
-                  <input type="text" placeholder="Select from map" className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-gray-50"
-                    value={startPoint?.name || ""} readOnly />
+                  <input type="text" placeholder="Select from map" className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-gray-50 text-black"
+                    value={startPoint?.name || ""}
+                    onChange={(e) => setStartPoint({ ...startPoint, name: e.target.value})} />
               </div>
 
               <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Ending Point</label>
                   <input type="text" placeholder="Selected from map" className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-gray-50"
-                    value={endPoint?.name || ""} readOnly />
+                    value={endPoint?.name || ""}
+                    onChange={(e) => setEndPoint({ ...endPoint, name: e.target.value})} />
               </div>
 
               <div className="space-y-2">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { supabase } from "@/app/lib/supabaseClient";
 
 const trafficStyles = {
   Low: "bg-green-100 text-green-600",
@@ -10,31 +11,59 @@ const trafficStyles = {
 
 export default function CommuteHistory() {
   const [commutes, setCommutes] = useState([]);
+  const [loading, setLoading] = useState(true); // Added loading state
   const [openId, setOpenId] = useState(null);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    fetch("/api/commutes")
-      .then(res => res.json())
-      .then(data => {
-        const formatted = data.map(c => ({
+  const fetchCommutes = async () => {
+      setLoading(true);
+      try {
+        // 1. Get the current logged-in user
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+        if (authError || !user) {
+          console.error("User not logged in");
+          setLoading(false);
+          return;
+        }
+
+        // 2. Fetch data directly for this user
+        const { data, error } = await supabase
+          .from("tbl_commutes")
+          .select("*")
+          .eq("user_id", user.id) // This matches your "view their own" policy
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        console.log("Supabase Direct Data:", data);
+
+        const formatted = data.map((c) => ({
           id: c.id,
-          date: new Date(c.date).toDateString(),
-          startTime: c.start_time,
-          endTime: c.end_time,
-          duration: c.duration_minutes,
+          date: c.date_commuted ? new Date(c.date_commuted).toDateString() : "No Date",
+          startTime: c.start_time || "--:--",
+          endTime: c.end_time || "--:--",
+          duration: c.duration_minutes || 0,
+          distance: c.distance_km || 0, // Using the float8 column from your schema
           start: c.start_location || "Unknown",
           end: c.end_location || "Unknown",
-          traffic: c.traffic_level,
-          notes: c.notes,
+          traffic: c.traffic_level || "Medium",
+          notes: c.notes || "",
         }));
 
         setCommutes(formatted);
-      });
+      } catch (err) {
+        console.error("Fetch error:", err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCommutes();
   }, []);
 
-
-  // 🔎 Real Search Filter
+  // 🔎 Filter logic - check for nulls to avoid crashes
   const filteredCommutes = useMemo(() => {
     return commutes.filter((c) =>
       `${c.start} ${c.end} ${c.date} ${c.traffic}`
@@ -51,129 +80,140 @@ export default function CommuteHistory() {
   }, {});
 
   const handleDelete = async (id) => {
-    await fetch("/api/commutes", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
+    if (!confirm("Are you sure you want to delete this commute?")) return;
 
-    setCommutes(prev => prev.filter(c => c.id !== id));
+    try {
+      const {error} = await supabase
+        .from("tbl_commutes")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setCommutes((prev) => prev.filter((c) => c.id !== id));
+
+      setOpenId(null);
+      
+    } catch (err) {
+      alert("Failed to delete");
+    }
   };
 
-
   return (
-    <div className="p-8 space-y-10 text-black">
-      <h1 className="text-3xl font-bold">Commute History</h1>
+    <div className="p-8 space-y-10 text-black max-w-5xl mx-auto">
+      <div className="flex justify-between items-end">
+        <div>
+           <h1 className="text-3xl font-bold">Commute History</h1>
+           <p className="text-zinc-500 text-sm">Review your past travels and patterns</p>
+        </div>
+      </div>
 
-      {/* Search */}
-      <div className="flex justify-between items-center bg-zinc-100 rounded-xl px-4 py-3">
+      {/* Search Bar */}
+      <div className="bg-zinc-100 rounded-2xl px-6 py-4 flex items-center shadow-inner">
+        <span className="mr-3 opacity-40">🔍</span>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by location, date, traffic..."
+          placeholder="Search locations, dates, or traffic..."
           className="bg-transparent outline-none text-sm w-full"
         />
       </div>
 
-      {/* Date Groups */}
-      {Object.keys(grouped).length === 0 && (
-        <p className="text-zinc-400 text-sm">No results found.</p>
-      )}
+      {loading ? (
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-24 bg-zinc-50 animate-pulse rounded-2xl border border-zinc-100" />
+          ))}
+        </div>
+      ) : Object.keys(grouped).length === 0 ? (
+        <div className="text-center py-20 border-2 border-dashed border-zinc-100 rounded-3xl">
+          <p className="text-zinc-400">No commutes found matching your search.</p>
+        </div>
+      ) : (
+        Object.keys(grouped).map((date) => (
+          <div key={date} className="space-y-4">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pl-2">
+              {date}
+            </h3>
 
-      {Object.keys(grouped).map((date) => (
-        <div key={date} className="space-y-4">
-          <h3 className="text-xs uppercase tracking-widest text-zinc-400">
-            {date}
-          </h3>
-
-          {grouped[date].map((commute, index) => {
-            const isOpen = openId === commute.id;
-
-            return (
-              <div
-                key={commute.id}
-                className="bg-white rounded-2xl border border-zinc-200 p-5 transition-all duration-500 hover:shadow-md animate-slideIn"
-                style={{
-                  animationDelay: `${index * 60}ms`,
-                }}
-              >
-                {/* Header */}
+            {grouped[date].map((commute, index) => {
+              const isOpen = openId === commute.id;
+              return (
                 <div
-                  onClick={() =>
-                    setOpenId(isOpen ? null : commute.id)
-                  }
-                  className="flex justify-between items-center cursor-pointer"
-                >
-                  <div>
-                    <h2 className="font-bold text-lg">
-                      From {commute.start} to {commute.end}
-                    </h2>
-                    <p className="text-xs text-zinc-500">
-                      {commute.startTime} - {commute.endTime}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${trafficStyles[commute.traffic]}`}
-                    >
-                      {commute.traffic}
-                    </span>
-
-                    <button className="p-2 rounded-full hover:bg-zinc-100 transition">
-                      {isOpen ? "▲" : "▼"}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Expandable Section */}
-                <div
-                  className={`transition-all duration-300 overflow-hidden ${
-                    isOpen ? "max-h-96 mt-4 opacity-100" : "max-h-0 opacity-0"
+                  key={commute.id}
+                  className={`bg-white rounded-[2rem] border transition-all duration-300 ${
+                    isOpen ? "border-zinc-900 ring-4 ring-zinc-50" : "border-zinc-200 hover:border-zinc-300"
                   }`}
                 >
-                  <div className="grid grid-cols-2 gap-6 text-sm text-zinc-700 pt-4">
-                    <div>
-                      <p><strong>Duration:</strong> {commute.duration} min</p>
-                      <p><strong>Starting Point:</strong> {commute.start}</p>
-                      <p><strong>Ending Point:</strong> {commute.end}</p>
+                  {/* Header */}
+                  <div
+                    onClick={() => setOpenId(isOpen ? null : commute.id)}
+                    className="p-6 flex justify-between items-center cursor-pointer"
+                  >
+                    <div className="flex items-center gap-6">
+                       <div className="h-12 w-12 bg-zinc-900 rounded-2xl flex items-center justify-center text-white font-bold">
+                          {commute.duration}<span className="text-[8px] ml-0.5">m</span>
+                       </div>
+                       <div>
+                          <h2 className="font-bold text-base leading-tight">
+                            {commute.start} <span className="text-zinc-300 mx-1">→</span> {commute.end}
+                          </h2>
+                          <p className="text-xs text-zinc-500 font-medium mt-1">
+                            {commute.startTime} - {commute.endTime}
+                          </p>
+                       </div>
                     </div>
 
-                    <div>
-                      <p><strong>Traffic:</strong> {commute.traffic}</p>
-                      <p><strong>Notes:</strong> {commute.notes || "—"}</p>
-
-                      {/* 🗑 Delete Button (only when open) */}
-                      <button
-                        onClick={() => handleDelete(commute.id)}
-                        className="mt-4 text-sm text-red-500 font-semibold hover:text-red-700 transition"
-                      >
-                        Delete Commute
-                      </button>
+                    <div className="flex items-center gap-4">
+                      <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ${trafficStyles[commute.traffic]}`}>
+                        {commute.traffic}
+                      </span>
+                      <div className={`transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}>
+                        ▼
+                      </div>
                     </div>
                   </div>
+
+                  {/* Expandable */}
+                  {isOpen && (
+                    <div className="px-6 pb-8 animate-fadeIn">
+                       <div className="h-px bg-zinc-100 w-full mb-6" />
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          <div className="space-y-3">
+                             <p className="text-xs text-zinc-400 uppercase font-bold tracking-tighter">Route Details</p>
+                             <div className="text-sm space-y-1">
+                                <p><strong>From:</strong> {commute.start}</p>
+                                <p><strong>To:</strong> {commute.end}</p>
+                                <p><strong>Duration:</strong> {commute.duration} minutes</p>
+                             </div>
+                          </div>
+                          <div className="space-y-3">
+                             <p className="text-xs text-zinc-400 uppercase font-bold tracking-tighter">Notes & Observations</p>
+                             <p className="text-sm italic text-zinc-600">"{commute.notes || "No extra notes for this trip."}"</p>
+                             <button
+                               onClick={(e) => { e.stopPropagation(); handleDelete(commute.id); }}
+                               className="text-xs font-bold text-red-500 hover:bg-red-50 px-3 py-1 rounded-lg transition-colors mt-2"
+                             >
+                               DELETE PERMANENTLY
+                             </button>
+                          </div>
+                       </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      ))}
+              );
+            })}
+          </div>
+        ))
+      )}
 
-      {/* Slide-in animation */}
       <style jsx>{`
-        @keyframes slideIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
         }
-
-        .animate-slideIn {
-          animation: slideIn 0.4s ease forwards;
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>
