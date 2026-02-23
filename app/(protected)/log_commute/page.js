@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/app/lib/supabaseClient";
 
 const CommuteMap = dynamic(
   () => import("../../components/CommuteMap"), // Use two sets of dots instead of three
@@ -9,45 +10,86 @@ const CommuteMap = dynamic(
 );
 
 export default function LogCommute() {
+  const [userId, setUserId] = useState(null);
   const [date, setDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [trafficLevel, setTrafficLevel] = useState("");
   const [notes, setNotes] = useState("");
+  
+  // Map 
   const [startPoint, setStartPoint] = useState(null);
   const [endPoint, setEndPoint] = useState(null);
-  const [distance, setDistance] = useState(null);
-  const [duration, setDuration] = useState(null);
+  const [distance, setDistance] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+    };
+    getUser();
+  }, []);
+
+  const handlePointAdded = (count, data) => {
+    if (count === 0) {
+      // Handling Reset
+      setStartPoint(null);
+      setEndPoint(null);
+      setDistance(0);
+      setDuration(0);
+
+    } else if (count === 1) {
+      setStartPoint(data);
+
+    } else if (count === 2) {
+      setEndPoint(data);
+    }
+  };
 
   const handleSave = async () => {
-    const durationMinutes =
-      (new Date(`1970-01-01T${endTime}`) -
-        new Date(`1970-01-01T${startTime}`)) / 60000;
+    if (!userId) return alert("User not authenticated.");
+    if (!startPoint || !endPoint || !date) {
+      alert("Please select a route on the map and a date.");
+      return;
+    }
 
-    await fetch("/api/commutes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_id: 1,
+    // Use map duration (seconds to minutes) if time inputs are empty,
+    // otherwise calculate from inputs
+    let durationMinutes = Math.floor(duration / 60);
+    
+    if (startTime && endTime) {
+      const start = new Date(`1970-01-01T${startTime}`);
+      const end = new Date(`1970-01-01T${endTime}`);
+      const diff = (end - start) / 60000;
+      if(diff > 0) durationMinutes = diff;
+    }
+
+    const { error } = await supabase.from("tbl_commutes").insert([
+      {
+        user_id: userId,
         date,
-        start_time: startTime,
-        end_time: endTime,
+        start_time: startTime || null,
+        end_time: endTime || null,
         duration_minutes: durationMinutes,
-
-        start_location: startPoint?.name || null,
-        end_location: endPoint?.name || null,
-
-        start_lat: startPoint?.lat || null,
-        start_lng: startPoint?.lng || null,
-        end_lat: endPoint?.lat || null,
-        end_lng: endPoint?.lng || null,
-
+        distance_km: parseFloat((distance / 1000).toFixed(2)),
+        start_location: startPoint.name,
+        end_location: endPoint.name,
+        start_lat: startPoint.lat,
+        start_lng: startPoint.lng,
+        end_lat: endPoint.lat,
+        end_lng: endPoint.lng,
         traffic_level: trafficLevel || null,
-        notes,
-      }),
-    });
+        notes: notes || "",
+      },
+    ]);
 
-    alert("Commute saved!");
+    if (error) {
+      alert("Error saving: " + error.message);
+    } else {
+      alert("Commute saved!");
+    }
+
   };
 
 
@@ -94,16 +136,14 @@ export default function LogCommute() {
 
               <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Starting Point</label>
-                  <input type="text" placeholder="Selected from map" className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-gray-50"
-                    value={startPoint?.name || ""}
-                    onChange={(e) => setStartPoint({ name: e.target.value}) } />
+                  <input type="text" placeholder="Select from map" className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-gray-50"
+                    value={startPoint?.name || ""} readOnly />
               </div>
 
               <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Ending Point</label>
                   <input type="text" placeholder="Selected from map" className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-gray-50"
-                    value={endPoint?.name || ""}
-                    onChange={(e) => setEndPoint({ name: e.target.value}) }/>
+                    value={endPoint?.name || ""} readOnly />
               </div>
 
               <div className="space-y-2">
@@ -143,10 +183,7 @@ export default function LogCommute() {
             </div>
             
             <CommuteMap 
-              startPoint={startPoint}
-              endPoint={endPoint}
-              setStartPoint={setStartPoint}
-              setEndPoint={setEndPoint}
+              onPointAdded={handlePointAdded}
               setDistance={setDistance}
               setDuration={setDuration}
             />

@@ -52,7 +52,7 @@ function login() {
                         <div className="grid grid-cols-4 items-center gap-4">
                             <label className="text-lg font-bold text-gray-700 col-span-1">Password</label>
                             <input type="password" placeholder="must be at least 10 characters" className="col-span-3 border-2 text-gray-500 border-2 border-gray-300 rounded-lg px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500" 
-                                    onChange={(e) => setEmail(e.target.value)}/>
+                                    onChange={(e) => setPassword(e.target.value)}/>
                         </div>
                     </div>
                     

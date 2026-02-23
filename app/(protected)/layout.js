@@ -1,6 +1,8 @@
+"use client";
+
 import Sidebar from "../components/sidebar";
 import { useEffect, useState } from "react";
-import { useRouter } from "@/app/lib/supabaseClient";
+import { supabase } from "@/app/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
 export default function ProtectedLayout({ children }) {
@@ -20,9 +22,15 @@ export default function ProtectedLayout({ children }) {
     };
 
     checkUser();
-  });
+  }, [router]);
 
-  if (loading) return <h4>Loading...</h4>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <h4>Loading...</h4>
+      </div>
+    );
+  }
   
   return (
     <div className="flex">

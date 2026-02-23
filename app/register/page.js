@@ -13,6 +13,12 @@ function register() {
     const [userName, setUserName] = useState("");
 
     const handleSignup = async () => {
+        
+        if (!email || !password || !userName) {
+            alert("Please fill in all fields!");
+            return;
+        }
+
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
@@ -23,15 +29,22 @@ function register() {
             return;
         }
 
-        await supabase.from("profiles").insert([
-            {
-                id: data.user.id,
-                user_name: userName,
-            },
-        ]);
+        if (data?.user && !error) {
+            const { error: dbError } = await supabase.from("tbl_users").insert([
+                {
+                    user_id: data.user.id,
+                    user_name: userName,
+                },
+            ]);
 
-        alert("Signup successful!");
-        router.push("/login");
+            if (dbError) {
+                alert("Authentication worked, but profile failed: " + dbError.message);
+                return;
+            }
+
+            alert("Signup successful!");
+            router.push("/login");
+        }
     };
 
     return (

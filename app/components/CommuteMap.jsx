@@ -17,15 +17,42 @@ if (typeof window !== "undefined") {
 }
 
 // 2. Helper: Click handler to set start/end points
-function LocationSelector({ setPoints }) {
+function LocationSelector({ setPoints, onPointAdded }) {
   useMapEvents({
-    click(e) {
+    async click(e) {
+      const { lat, lng } = e.latlng;
+
+      let name = "Selected Location";
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+        const data = await res.json();
+        name = data.display_name.split(',')[0] + ", " + data.display_name.split(',')[1];
+
+        if (data.display_name) {
+          const parts = data.display_name.split(',');
+          name = parts[0] + (parts[1] ? ", " + parts[1] : "");
+        }
+
+      } catch (err) {
+        console.log("Geocoding failed: ", err);
+      }
+
       setPoints((prev) => {
         if (prev.length >= 2) return prev;
-        return [...prev, [e.latlng.lat, e.latlng.lng]];
+        const newPoints = [...prev, [lat, lng]];
+
+        // FIX: Wrap in setTimeout to avoid the "update while rendering" error
+        if (onPointAdded) {
+          setTimeout(() => {
+            onPointAdded(newPoints.length, { lat, lng, name });
+          }, 0);
+        }
+
+        return newPoints;
       });
     },
   });
+
   return null;
 }
 
@@ -98,7 +125,7 @@ function Routing({ points, setRoadMetrics }) {
 }
 
 // 4. MAIN COMPONENT
-export default function CommuteMap() {
+export default function CommuteMap({ onPointAdded, setDistance, setDuration }) {
   const [points, setPoints] = useState([]);
   const [isClient, setIsClient] = useState(false);
   const [roadMetrics, setRoadMetrics] = useState({ distance: 0, time: 0 });
@@ -106,6 +133,13 @@ export default function CommuteMap() {
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    setTimeout(() => {
+      if (setDistance) setDistance(roadMetrics.distance);
+      if (setDuration) setDuration(roadMetrics.time);
+    }, 0);
+  }, [roadMetrics.distance, roadMetrics.time]);
 
   if (!isClient) return <div className="h-[450px] bg-zinc-100 animate-pulse rounded-[2.5rem]" />;
 
@@ -125,7 +159,7 @@ export default function CommuteMap() {
         >
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-          <LocationSelector setPoints={setPoints} />
+          <LocationSelector setPoints={setPoints} onPointAdded={onPointAdded} />
 
           {points.map((position, index) => (
             <Marker key={`marker-${index}`} position={position} />
@@ -145,6 +179,7 @@ export default function CommuteMap() {
               onClick={() => {
                 setRoadMetrics({ distance: 0, time: 0 });
                 setPoints([]);
+                if (onPointAdded) onPointAdded(0, null);
               }}
               className="bg-white px-6 py-2 rounded-full shadow-xl text-[10px] font-black text-red-500 border border-zinc-100 hover:bg-red-50 transition-colors"
             >
