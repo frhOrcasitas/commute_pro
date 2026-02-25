@@ -14,6 +14,7 @@ export default function CommuteHistory() {
   const [loading, setLoading] = useState(true); // Added loading state
   const [openId, setOpenId] = useState(null);
   const [search, setSearch] = useState("");
+  const [filterTraffic, setFilterTraffic] = useState("");
 
   useEffect(() => {
   const fetchCommutes = async () => {
@@ -65,12 +66,16 @@ export default function CommuteHistory() {
 
   // 🔎 Filter logic - check for nulls to avoid crashes
   const filteredCommutes = useMemo(() => {
-    return commutes.filter((c) =>
-      `${c.start} ${c.end} ${c.date} ${c.traffic}`
+    return commutes.filter((c) => {
+      const matchesSearch = `${c.start} ${c.end} ${c.date}`
         .toLowerCase()
-        .includes(search.toLowerCase())
-    );
-  }, [search, commutes]);
+        .includes(search.toLowerCase());
+      
+      const matchesTraffic = filterTraffic === "" || c.traffic === filterTraffic;
+
+      return matchesSearch && matchesTraffic;
+    });
+  }, [search, filterTraffic, commutes]);
 
   // Group by date
   const grouped = filteredCommutes.reduce((acc, commute) => {
@@ -100,7 +105,7 @@ export default function CommuteHistory() {
   };
 
   return (
-    <div className="p-8 space-y-10 text-black max-w-5xl mx-auto">
+    <div className="p-8 space-y-10 text-black max-w-7xl mx-auto w-full">
       <div className="flex justify-between items-end">
         <div>
            <h1 className="text-3xl font-bold">Commute History</h1>
@@ -109,14 +114,36 @@ export default function CommuteHistory() {
       </div>
 
       {/* Search Bar */}
-      <div className="bg-zinc-100 rounded-2xl px-6 py-4 flex items-center shadow-inner">
-        <span className="mr-3 opacity-40">🔍</span>
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search locations, dates, or traffic..."
-          className="bg-transparent outline-none text-sm w-full"
-        />
+      <div className="flex flex-col md:flex-row gap-4">
+  {/* Compact Search Bar */}
+  <div className="flex-[3] bg-zinc-100 rounded-2xl px-6 py-4 flex items-center shadow-inner">
+    <span className="mr-3 opacity-40">🔍</span>
+    <input
+      value={search}
+      onChange={(e) => setSearch(e.target.value)}
+      placeholder="Search history..."
+      className="bg-transparent outline-none text-sm w-full text-zinc-700 placeholder:text-zinc-500"
+    />
+  </div>
+
+        {/* Traffic Filter with Custom Arrow */}
+        <div className="w-full md:w-64 relative">
+          <select
+            value={filterTraffic}
+            onChange={(e) => setFilterTraffic(e.target.value)}
+            className="w-full h-full bg-white border border-zinc-200 rounded-2xl pl-6 pr-12 py-4 text-sm font-medium focus:ring-2 focus:ring-zinc-900 outline-none shadow-sm cursor-pointer appearance-none text-black"
+          >
+            <option value="">All Traffic Levels</option>
+            <option value="Low">Low Traffic</option>
+            <option value="Medium">Medium Traffic</option>
+            <option value="High">High Traffic</option>
+          </select>
+          
+          {/* The Triangle Icon */}
+          <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-[10px] text-zinc-400">
+            ▼
+          </div>
+        </div>
       </div>
 
       {loading ? (

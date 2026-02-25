@@ -48,7 +48,24 @@ export default function LogCommute() {
     }
   };
 
-  const startLiveCommute = () => {
+  const startLiveCommute = async () => {
+    const {data: settings, error } = await supabase 
+      .from("tbl_user_settings")
+      .select("location_access")
+      .eq("user_id", userId)
+      .single();
+
+      // if settings don't exist yet, assume false
+      if (error && error.code !== 'PGRST116') {
+        console.error("Error fetching settings:", error);
+        return;
+      }
+
+      if (!settings || !settings.location_access) {
+        alert("Please enable Location Access in your Profile settings first.");
+        return;
+      }
+
     setIsLive(true);
     setLoadingAddr(true);
     const now = new Date();
