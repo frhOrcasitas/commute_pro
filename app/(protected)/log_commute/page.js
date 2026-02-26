@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/app/lib/supabaseClient";
 import { Play, Square, RotateCcw, Loader2 } from "lucide-react";
 
@@ -14,6 +14,8 @@ export default function LogCommute() {
   const [userId, setUserId] = useState(null);
   const [isLive, setIsLive] = useState(false);
   const [loadingAddr, setLoadingAddr] = useState(false);
+  const [path, setPath] = useState([]);
+  const watchId = useRef(null);
 
   const [date_commuted, setDate] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -67,41 +69,44 @@ export default function LogCommute() {
       }
 
     setIsLive(true);
-    setLoadingAddr(true);
+    setPath([]);
     const now = new Date();
-
     setStartTime(now.toTimeString().slice(0, 5));
     setDate(now.toISOString().split('T')[0]);
 
     if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(async (position) => {
-        const {latitude, longitude } = position.coords;
-        const address = await fetchAddress(latitude, longitude);
-        setStartPoint({lat: latitude, lng: longitude, name: address});
-        setLoadingAddr(false);
-      }, () => setLoadingAddr(false));
-
-    } else {
-      setLoadingAddr(false);
+      // START TRACKING
+      watchId.current = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const newCoord = [latitude, longitude];
+          
+          setPath((prev) => {
+            if (prev.length === 0) {
+              setStartPoint({ lat: latitude, lng: longitude, name: "Current Location" });
+            }
+            return [...prev, newCoord];
+          });
+          
+          if (path.length === 0) {
+              setStartPoint({ lat: latitude, lng: longitude, name: "Current Location" });
+          }
+        },
+        (error) => console.error(error),
+        { enableHighAccuracy: true, distanceFilter: 10 } // Update every 10 meters
+      );
     }
   };
 
   const stopLiveCommute = () => {
-    setIsLive(false);
-    setLoadingAddr(true);
-    
-    const now = new Date();
-    setEndTime(now.toTimeString().slice(0,5));
+    setIsLive(false);    
+    if (watchId.current !== null) {
+      navigator.geolocation.clearWatch(watchId.current);
+    }
 
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(async (position) => {
-        const {latitude, longitude} = position.coords;
-        const address = await fetchAddress(latitude, longitude);
-        setEndPoint({lat: latitude, lng: longitude, name: address});
-        setLoadingAddr(false);
-      }, () => setLoadingAddr(false));
-    } else {
-      setLoadingAddr(false);
+    if (path.length > 0 ) {
+      const lastCoord = path[path.length - 1];
+      setEndPoint({lat: lastCoord[0], lng: lastCoord[1], name: "Destination"});
     }
   };
 
@@ -309,6 +314,7 @@ return (
               }}
               setDistance={setDistance}
               setDuration={setDuration}
+              livePath={path}
             />
           </div>
         </section>

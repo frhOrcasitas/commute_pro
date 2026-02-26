@@ -45,7 +45,7 @@ export default function traffic_insights() {
     }, [commutes]);
 
     const insights = useMemo(() => {
-        if (commutes.length === 0) return { peakWindow: "--", busiestDay: "--", tips: [] };
+        if (commutes.length === 0) return { peakWindow: "--", busiestDay: "--", avgDelay: 0, tips: [] };
 
         const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const dayCounts = {};
@@ -78,6 +78,11 @@ export default function traffic_insights() {
         const endTime = new Date(dateObj.getTime() + 30 * 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false});
         const peakWindow = `${startTime} - ${endTime}`;
 
+        const totalActual = commutes.reduce((acc, c) => acc + (c.duration_minutes || 0), 0);
+        // based on the average speed(60 + 40 + 30)/3 = 43
+        const totalBaseline = commutes.reduce((acc, c) => acc + ((c. distance_km / 40) * 60), 0);
+        const avgDelay = Math.max(0, Math.round((totalActual - totalBaseline) / commutes.length));
+
         // AI Insights Engine
         const tips = [];
         if (peakH >= 16) {
@@ -95,7 +100,7 @@ export default function traffic_insights() {
             tips.push("Your commute timing is currently optimal compared to local averages. Stick to your current routine.");
         }
 
-        return { peakWindow, busiestDay, tips, peakH };
+        return { peakWindow, busiestDay, tips, peakH, avgDelay };
     }, [commutes]); // Added missing commutes dependency here
 
     const hourlyData = useMemo(() => {
@@ -143,6 +148,7 @@ export default function traffic_insights() {
                 <InsightCard title="Busiest Day" value={insights.busiestDay} sub={`${commutes.length} entries analyzed`}/>
                 <InsightCard title="Peak Time Window" value={insights.peakWindow} sub="Highly specific 1-min interval" />
                 <InsightCard title="Average Duration" value={`${Math.round(commutes.reduce((acc,c) => acc + c.duration_minutes, 0) / commutes.length || 0)} min`} />
+                <InsightCard title="Average Delay" value={`${insights.avgDelay} min`} sub="Minutes lost to traffic" />
             </div>
 
             {/* Charts Section */}

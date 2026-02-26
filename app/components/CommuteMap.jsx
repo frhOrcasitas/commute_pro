@@ -1,12 +1,11 @@
 "use client";
 
-import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents, Polyline } from "react-leaflet";
 import { useState, useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-routing-machine";
 
-// 1. Fix marker icons for Next.js environment
 if (typeof window !== "undefined") {
   delete L.Icon.Default.prototype._getIconUrl;
   L.Icon.Default.mergeOptions({
@@ -16,23 +15,18 @@ if (typeof window !== "undefined") {
   });
 }
 
-// 2. Helper: Click handler to set start/end points
 function LocationSelector({ setPoints, onPointAdded }) {
   useMapEvents({
     async click(e) {
       const { lat, lng } = e.latlng;
-
       let name = "Selected Location";
       try {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
         const data = await res.json();
-        name = data.display_name.split(',')[0] + ", " + data.display_name.split(',')[1];
-
         if (data.display_name) {
           const parts = data.display_name.split(',');
           name = parts[0] + (parts[1] ? ", " + parts[1] : "");
         }
-
       } catch (err) {
         console.log("Geocoding failed: ", err);
       }
@@ -40,31 +34,24 @@ function LocationSelector({ setPoints, onPointAdded }) {
       setPoints((prev) => {
         if (prev.length >= 2) return prev;
         const newPoints = [...prev, [lat, lng]];
-
-        // FIX: Wrap in setTimeout to avoid the "update while rendering" error
         if (onPointAdded) {
           setTimeout(() => {
             onPointAdded(newPoints.length, { lat, lng, name });
           }, 0);
         }
-
         return newPoints;
       });
     },
   });
-
   return null;
 }
 
-// 3. Helper: Routing Logic (The Bulletproof Version)
 function Routing({ points, setRoadMetrics }) {
   const map = useMap();
   const routingControlRef = useRef(null);
 
   useEffect(() => {
     if (!map) return;
-
-    // Initialize the control once and keep it alive
     if (!routingControlRef.current) {
       routingControlRef.current = L.Routing.control({
         waypoints: [],
@@ -73,7 +60,7 @@ function Routing({ points, setRoadMetrics }) {
         draggableWaypoints: false,
         show: false,
         containerClassName: 'hidden',
-        createMarker: () => null, // We use our own markers
+        createMarker: () => null,
         lineOptions: {
           styles: [{ color: "#2563eb", weight: 6, opacity: 0.8 }]
         }
@@ -88,37 +75,21 @@ function Routing({ points, setRoadMetrics }) {
           });
         }
       });
-
-      // Add to map only once
       routingControlRef.current.addTo(map);
     }
 
-    // Update waypoints if we have exactly 2, otherwise clear
     if (points.length === 2) {
-      const wp = [
-        L.latLng(points[0][0], points[0][1]),
-        L.latLng(points[1][0], points[1][1]),
-      ];
+      const wp = [L.latLng(points[0][0], points[0][1]), L.latLng(points[1][0], points[1][1])];
       routingControlRef.current.setWaypoints(wp);
     } else {
-      // Safely clear waypoints without removing the control
       routingControlRef.current.setWaypoints([]);
     }
 
-    // Cleanup: Only happens when the whole Map is destroyed
     return () => {
       if (routingControlRef.current) {
-        try {
-          const ctrl = routingControlRef.current;
-          ctrl.off('routesfound');
-          // Important: remove waypoints before removing control to stop pending calculations
-          ctrl.setWaypoints([]);
-          if (map && map.removeControl) {
-            map.removeControl(ctrl);
-          }
-        } catch (e) {
-          console.warn("Cleaned up routing safely");
-        }
+        const ctrl = routingControlRef.current;
+        ctrl.setWaypoints([]);
+        map.removeControl(ctrl);
         routingControlRef.current = null;
       }
     };
@@ -127,48 +98,37 @@ function Routing({ points, setRoadMetrics }) {
   return null;
 }
 
-// 4. MAIN COMPONENT
-export default function CommuteMap({ onPointAdded, setDistance, setDuration }) {
+export default function CommuteMap({ onPointAdded, setDistance, setDuration, livePath = [] }) {
   const [points, setPoints] = useState([]);
   const [isClient, setIsClient] = useState(false);
   const [roadMetrics, setRoadMetrics] = useState({ distance: 0, time: 0 });
 
+  useEffect(() => { setIsClient(true); }, []);
   useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
-      if (setDistance) setDistance(roadMetrics.distance);
-      if (setDuration) setDuration(roadMetrics.time);
-    }, [roadMetrics, setDistance, setDuration]);
+    if (setDistance) setDistance(roadMetrics.distance);
+    if (setDuration) setDuration(roadMetrics.time);
+  }, [roadMetrics, setDistance, setDuration]);
 
   if (!isClient) return <div className="h-[450px] bg-zinc-100 animate-pulse rounded-[2.5rem]" />;
 
   return (
     <div className="space-y-6">
-      <style jsx global>{`
-        .leaflet-routing-container { display: none !important; }
-      `}</style>
-
+      <style jsx global>{`.leaflet-routing-container { display: none !important; }`}</style>
       <div className="relative overflow-hidden rounded-[2.5rem] border-4 border-zinc-200 shadow-sm bg-white">
-        <MapContainer
-          center={[3.1390, 101.6869]}
-          zoom={13}
-          style={{ height: "450px", width: "100%" }}
-        >
+        <MapContainer center={[3.1390, 101.6869]} zoom={13} style={{ height: "450px", width: "100%" }}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          
+          {/* Live Path Render */}
+          {livePath && livePath.length > 1 && (
+            <Polyline 
+              positions={livePath} 
+              pathOptions={{ color: "#10b981", weight: 4, dashArray: "5, 10", lineCap: "round" }} 
+            />
+          )}
 
           <LocationSelector setPoints={setPoints} onPointAdded={onPointAdded} />
-
-          {points.map((position, index) => (
-            <Marker key={`marker-${index}`} position={position} />
-          ))}
-
-        
-            <Routing 
-              points={points} 
-              setRoadMetrics={setRoadMetrics} 
-            />
+          {points.map((position, index) => <Marker key={`marker-${index}`} position={position} />)}
+          <Routing points={points} setRoadMetrics={setRoadMetrics} />
         </MapContainer>
 
         <div className="absolute top-4 right-4 z-[1000]">
