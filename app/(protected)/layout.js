@@ -11,16 +11,13 @@ export default function ProtectedLayout({ children }) {
 
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { user }} = await supabase.auth.getUser();
-
-      if(!user) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
         router.push("/login");
-
       } else {
         setLoading(false);
       }
     };
-
     checkUser();
   }, [router]);
 
@@ -31,12 +28,17 @@ export default function ProtectedLayout({ children }) {
       </div>
     );
   }
-  
+
   return (
     <div className="flex">
       <Sidebar />
 
-      <main className="flex-1 bg-gray-100 min-h-screen">
+      {/*
+        On mobile (below md): Sidebar renders a fixed 56px (h-14) top bar,
+        so we push content down with pt-14 to stop it overlapping.
+        On desktop (md+): Sidebar is a side rail, no top bar, so no top padding needed.
+      */}
+      <main className="flex-1 bg-gray-100 min-h-screen pt-14 md:pt-0">
         {children}
       </main>
     </div>
