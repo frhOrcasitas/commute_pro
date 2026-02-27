@@ -28,17 +28,29 @@ export default function LogCommute() {
   const [endPoint, setEndPoint] = useState(null);
   const [distance, setDistance] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [savedLocs, setSavedLocs] = useState([]);
 
   useEffect(() => {
-    const getUser = async () => {
+    const initData = async () => {
+      // 1. Get the user
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) setUserId(user.id);
+      if (!user) return;
+      
+      setUserId(user.id);
+
+      // 2. Immediately fetch their saved locations (Home, Work, etc.)
+      const { data: locations } = await supabase
+        .from("tbl_saved_locations")
+        .select("label, address, lat, lng")
+        .eq("user_id", user.id);
+      
+      if (locations) setSavedLocs(locations);
     };
-    getUser();
+
+    initData();
   }, []);
 
   // Coordinates to Name, Reverse Geocoding
-
   const fetchAddress = async (lat, lng) => {
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
@@ -138,49 +150,52 @@ export default function LogCommute() {
     }
   };
 
-  const handleSave = async () => {
-    if (!userId) return alert("User not authenticated.");
-    if (!startPoint || !endPoint || !date_commuted) {
-      alert("Please select a route on the map and a date.");
-      return;
+const handleSave = async () => {
+  if (!userId) return alert("User not authenticated.");
+  if (!startPoint || !endPoint || !date_commuted) {
+    alert("Please select a route on the map and a date.");
+    return;
+  }
+
+  // 1. Calculate 'Actual' duration (What the user/GPS actually spent)
+  let actualDuration = Math.floor(duration / 60); 
+  if (startTime && endTime) {
+    const start = new Date(`1970-01-01T${startTime}`);
+    const end = new Date(`1970-01-01T${endTime}`);
+    const diff = (end - start) / 60000;
+    if (diff > 0) actualDuration = diff;
+  }
+
+  // 2. Capture 'Ideal' duration (What the map estimated in seconds, converted to minutes)
+  const idealDuration = Math.floor(duration / 60);
+
+  const { error } = await supabase.from("tbl_commutes").insert([
+    {
+      user_id: userId,
+      date_commuted,
+      start_time: startTime,
+      end_time: endTime,
+      duration_minutes: actualDuration,         // Actual time
+      estimated_duration_minutes: idealDuration, // Map's predicted time
+      distance_km: parseFloat((distance / 1000).toFixed(2)),
+      start_location: startPoint.name,
+      end_location: endPoint.name,
+      start_lat: startPoint.lat,
+      start_lng: startPoint.lng,
+      end_lat: endPoint.lat,
+      end_lng: endPoint.lng,
+      traffic_level: trafficLevel,
+      notes: notes || "",
     }
+  ]);
 
-    // Use map duration (seconds to minutes) if time inputs are empty,
-    // otherwise calculate from inputs
-    let durationMinutes = Math.floor(duration / 60);
-    if (startTime && endTime) {
-      const start = new Date(`1970-01-01T${startTime}`);
-      const end = new Date(`1970-01-01T${endTime}`);
-      const diff = (end - start) / 60000;
-      if(diff > 0) durationMinutes = diff;
-    }
-
-    const { error } = await supabase.from("tbl_commutes").insert([
-      {
-        user_id: userId,
-        date_commuted,
-        start_time: startTime,
-        end_time: endTime,
-        duration_minutes: durationMinutes,
-        distance_km: parseFloat((distance / 1000).toFixed(2)),
-        start_location: startPoint.name,
-        end_location: endPoint.name,
-        start_lat: startPoint.lat,
-        start_lng: startPoint.lng,
-        end_lat: endPoint.lat,
-        end_lng: endPoint.lng,
-        traffic_level: trafficLevel,
-        notes: notes || "",
-      }]);
-
-    if (error) {
-      alert("Error saving: " + error.message);
-    } else {
-      alert("Commute saved!");
-      handleReset();
-    }
-
-  };
+  if (error) {
+    alert("Error saving: " + error.message);
+  } else {
+    alert("Commute saved with traffic data!");
+    handleReset();
+  }
+};
 
 
 return (
@@ -249,8 +264,22 @@ return (
               </div>
             </div>
 
+            {/* Starting Point Section */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Starting Point</label>
+              <div className="flex justify-between items-end">
+                <label className="text-sm font-medium text-gray-700">Starting Point</label>
+                <div className="flex gap-1.5">
+                  {savedLocs.map((loc) => (
+                    <button
+                      key={`start-${loc.label}`}
+                      onClick={() => setStartPoint({ lat: loc.lat, lng: loc.lng, name: loc.address })}
+                      className="text-[10px] bg-zinc-100 hover:bg-zinc-800 hover:text-white px-2 py-1 rounded-md font-bold transition"
+                    >
+                      {loc.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <input 
                 type="text" 
                 value={startPoint?.name || ""} 
@@ -260,8 +289,22 @@ return (
               />
             </div>
 
+            {/* Ending Point Section */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Ending Point</label>
+              <div className="flex justify-between items-end">
+                <label className="text-sm font-medium text-gray-700">Ending Point</label>
+                <div className="flex gap-1.5">
+                  {savedLocs.map((loc) => (
+                    <button
+                      key={`end-${loc.label}`}
+                      onClick={() => setEndPoint({ lat: loc.lat, lng: loc.lng, name: loc.address })}
+                      className="text-[10px] bg-zinc-100 hover:bg-zinc-800 hover:text-white px-2 py-1 rounded-md font-bold transition"
+                    >
+                      {loc.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <input 
                 type="text" 
                 value={endPoint?.name || ""} 
@@ -305,7 +348,7 @@ return (
         </section>
 
         <section className="lg:col-span-7">
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm h-full">
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm min-h-[550px]">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Route Preview</h2>
             <CommuteMap 
               onPointAdded={(count, data) => {
@@ -315,6 +358,8 @@ return (
               setDistance={setDistance}
               setDuration={setDuration}
               livePath={path}
+              externalStart={startPoint}
+              externalEnd={endPoint}
             />
           </div>
         </section>

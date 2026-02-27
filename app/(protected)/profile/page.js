@@ -76,6 +76,22 @@ export default function profile() {
                         setAiSuggestions(settingsData.ai_suggestions);
                     }
 
+                    if ("Notification" in window) {
+                        // If the user manually blocked notifications in the browser, 
+                        // we force the toggle to 'false' so the UI isn't lying.
+                        if (Notification.permission !== "granted") {
+                            setReminders(false);
+                        }
+                    }
+                    
+                    if (navigator.permissions) {
+                        navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+                            if (result.state !== 'granted') {
+                                setLocationAccess(false);
+                            }
+                        });
+                    }
+
                 setLoading(false);
         };
         fetchAllUserData();
@@ -169,11 +185,15 @@ export default function profile() {
 
         const permission = await Notification.requestPermission();
         if (permission === "granted") {
-            // Registers the worker you put in the public folder
-            await navigator.serviceWorker.register('/sw.js');
-            console.log("Notifications enabled!");
+            // Just a friendly test notification so they know it works
+            new Notification("Notifications Enabled!", {
+                body: "You will now receive traffic strategy alerts here.",
+                icon: "/favicon.ico" 
+            });
+            setReminders(true);
         } else {
-            setReminders(false); // Turn toggle off if they deny
+            setReminders(false);
+            alert("Notifications were denied. Please enable them in browser settings.");
         }
     };
 
@@ -268,6 +288,22 @@ export default function profile() {
                                 if (val === true) requestNotificationPermission();
                             }}
                         />
+
+                        {/*}
+                        {reminders && (
+                            <button 
+                                onClick={() => {
+                                    new Notification("System Check", { 
+                                        body: "Notifications are working perfectly!",
+                                        icon: "/favicon.ico" 
+                                    });
+                                }}
+                                className="text-xs text-emerald-600 font-medium hover:underline ml-5"
+                            >
+                                Send test notification
+                            </button>
+                        )}
+                        {*/}
 
                         <SettingToggle
                             label="AI Suggestions"

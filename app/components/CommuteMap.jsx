@@ -6,6 +6,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-routing-machine";
 
+// Fix for Leaflet Default Icon
 if (typeof window !== "undefined") {
   delete L.Icon.Default.prototype._getIconUrl;
   L.Icon.Default.mergeOptions({
@@ -15,10 +16,24 @@ if (typeof window !== "undefined") {
   });
 }
 
-function LocationSelector({ setPoints, onPointAdded }) {
+// Automatically centers map when points are added
+function MapRecenter({ points }) {
+  const map = useMap();
+  useEffect(() => {
+    if (points.length > 0) {
+      const bounds = L.latLngBounds(points.map(p => [p[0], p[1]]));
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+    }
+  }, [points, map]);
+  return null;
+}
+
+function LocationSelector({ points, onPointAdded }) {
   useMapEvents({
     async click(e) {
       const { lat, lng } = e.latlng;
+      if (points.length >= 2) return;
+
       let name = "Selected Location";
       try {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
@@ -27,20 +42,9 @@ function LocationSelector({ setPoints, onPointAdded }) {
           const parts = data.display_name.split(',');
           name = parts[0] + (parts[1] ? ", " + parts[1] : "");
         }
-      } catch (err) {
-        console.log("Geocoding failed: ", err);
-      }
+      } catch (err) { console.log(err); }
 
-      setPoints((prev) => {
-        if (prev.length >= 2) return prev;
-        const newPoints = [...prev, [lat, lng]];
-        if (onPointAdded) {
-          setTimeout(() => {
-            onPointAdded(newPoints.length, { lat, lng, name });
-          }, 0);
-        }
-        return newPoints;
-      });
+      onPointAdded(points.length + 1, { lat, lng, name });
     },
   });
   return null;
@@ -50,60 +54,86 @@ function Routing({ points, setRoadMetrics }) {
   const map = useMap();
   const routingControlRef = useRef(null);
 
+  // 1. Setup the control once and only once
   useEffect(() => {
-    if (!map) return;
-    if (!routingControlRef.current) {
-      routingControlRef.current = L.Routing.control({
-        waypoints: [],
-        routeWhileDragging: false,
+    if (!map || routingControlRef.current) return;
+
+    const control = L.Routing.control({
+      waypoints: [],
+      lineOptions: {
+        styles: [{ color: "#2563eb", weight: 6, opacity: 0.8 }],
         addWaypoints: false,
-        draggableWaypoints: false,
-        show: false,
-        containerClassName: 'hidden',
-        createMarker: () => null,
-        lineOptions: {
-          styles: [{ color: "#2563eb", weight: 6, opacity: 0.8 }]
-        }
-      });
+      },
+      show: false,
+      addWaypoints: false,
+      routeWhileDragging: false,
+      fitSelectedRoutes: true,
+      createMarker: () => null,
+    }).addTo(map);
 
-      routingControlRef.current.on('routesfound', (e) => {
-        if (e.routes && e.routes[0]) {
-          const summary = e.routes[0].summary;
-          setRoadMetrics({
-            distance: summary.totalDistance,
-            time: summary.totalTime
-          });
-        }
-      });
-      routingControlRef.current.addTo(map);
-    }
+    control.on("routesfound", (e) => {
+      const routes = e.routes;
+      if (routes && routes[0]) {
+        setRoadMetrics({
+          distance: routes[0].summary.totalDistance,
+          time: routes[0].summary.totalTime
+        });
+      }
+    });
 
-    if (points.length === 2) {
-      const wp = [L.latLng(points[0][0], points[0][1]), L.latLng(points[1][0], points[1][1])];
-      routingControlRef.current.setWaypoints(wp);
-    } else {
-      routingControlRef.current.setWaypoints([]);
-    }
+    routingControlRef.current = control;
 
     return () => {
       if (routingControlRef.current) {
-        const ctrl = routingControlRef.current;
-        ctrl.setWaypoints([]);
-        map.removeControl(ctrl);
+        try {
+          // Remove the routes and the control safely
+          routingControlRef.current.setWaypoints([]);
+          map.removeControl(routingControlRef.current);
+        } catch (e) {
+          console.warn("Leaflet cleanup swallowed:", e);
+        }
         routingControlRef.current = null;
       }
     };
-  }, [map, points, setRoadMetrics]);
+  }, [map]); // Only depends on map init
+
+  // 2. Separate Effect for updating Waypoints
+  useEffect(() => {
+    const control = routingControlRef.current;
+    if (!control) return;
+
+    if (points && points.length === 2) {
+      const wp1 = L.latLng(points[0][0], points[0][1]);
+      const wp2 = L.latLng(points[1][0], points[1][1]);
+      
+      // Only update if coordinates actually changed to prevent loops
+      const currentWps = control.getWaypoints();
+      const isSame = currentWps.length === 2 && 
+                     currentWps[0].latLng?.lat === wp1.lat && 
+                     currentWps[1].latLng?.lat === wp2.lat;
+
+      if (!isSame) {
+        control.setWaypoints([wp1, wp2]);
+      }
+    } else if (points.length === 0) {
+      control.setWaypoints([]);
+    }
+  }, [points]); // Only depends on points changing
 
   return null;
 }
 
-export default function CommuteMap({ onPointAdded, setDistance, setDuration, livePath = [] }) {
-  const [points, setPoints] = useState([]);
+export default function CommuteMap({ onPointAdded, setDistance, setDuration, livePath = [], externalStart, externalEnd }) {
   const [isClient, setIsClient] = useState(false);
   const [roadMetrics, setRoadMetrics] = useState({ distance: 0, time: 0 });
 
+  const points = [];
+  if (externalStart?.lat) points.push([externalStart.lat, externalStart.lng, externalStart.name]);
+  if (externalEnd?.lat) points.push([externalEnd.lat, externalEnd.lng, externalEnd.name]);
+
   useEffect(() => { setIsClient(true); }, []);
+
+  // Pass metrics back up to parent
   useEffect(() => {
     if (setDistance) setDistance(roadMetrics.distance);
     if (setDuration) setDuration(roadMetrics.time);
@@ -113,21 +143,29 @@ export default function CommuteMap({ onPointAdded, setDistance, setDuration, liv
 
   return (
     <div className="space-y-6">
-      <style jsx global>{`.leaflet-routing-container { display: none !important; }`}</style>
+      <style jsx global>{`
+        .leaflet-routing-container { display: none !important; }
+      `}</style>
+      
       <div className="relative overflow-hidden rounded-[2.5rem] border-4 border-zinc-200 shadow-sm bg-white">
-        <MapContainer center={[3.1390, 101.6869]} zoom={13} style={{ height: "450px", width: "100%" }}>
+        <MapContainer center={[7.07, 125.6]} zoom={13} style={{ height: "450px", width: "100%" }}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           
-          {/* Live Path Render */}
+          <MapRecenter points={points} />
+          
           {livePath && livePath.length > 1 && (
             <Polyline 
               positions={livePath} 
-              pathOptions={{ color: "#10b981", weight: 4, dashArray: "5, 10", lineCap: "round" }} 
+              pathOptions={{ color: "#10b981", weight: 4, dashArray: "5, 10" }} 
             />
           )}
 
-          <LocationSelector setPoints={setPoints} onPointAdded={onPointAdded} />
-          {points.map((position, index) => <Marker key={`marker-${index}`} position={position} />)}
+          <LocationSelector points={points} onPointAdded={onPointAdded} />
+          
+          {points.map((p, i) => (
+            <Marker key={`${i}-${p[0]}`} position={[p[0], p[1]]} />
+          ))}
+
           <Routing points={points} setRoadMetrics={setRoadMetrics} />
         </MapContainer>
 
@@ -136,8 +174,7 @@ export default function CommuteMap({ onPointAdded, setDistance, setDuration, liv
             <button 
               onClick={() => {
                 setRoadMetrics({ distance: 0, time: 0 });
-                setPoints([]);
-                if (onPointAdded) onPointAdded(0, null);
+                onPointAdded(0, null);
               }}
               className="bg-white px-6 py-2 rounded-full shadow-xl text-[10px] font-black text-red-500 border border-zinc-100 hover:bg-red-50 transition-colors"
             >
