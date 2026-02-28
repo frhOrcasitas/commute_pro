@@ -34,13 +34,13 @@ export default function Home() {
 
         <div className="relative z-10 flex flex-col items-center gap-5 sm:gap-6 max-w-3xl mx-auto">
           <span className="text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-full bg-white/10 text-white/80 border border-white/20 backdrop-blur-sm">
-            Your smart commute companion
+            Your commute's best friend
           </span>
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold text-white leading-tight tracking-tight">
             Commute<span style={{ color: "#EDAE49" }}>Pro</span>
           </h1>
           <p className="text-base sm:text-lg text-white/70 max-w-md">
-            Stop guessing. Start commuting smarter with AI-powered insights built around your journey.
+            Stop guessing. Start commuting smarter.
           </p>
           <div className="flex items-center gap-3 sm:gap-4 mt-2">
             <Link href="/register">
@@ -119,27 +119,38 @@ export default function Home() {
       </section>
 
       {/* ── CTA ── */}
-      <section className="flex-1 flex flex-col items-center justify-center text-center px-4 py-20 sm:py-28 bg-gray-50 gap-5 sm:gap-6">
-        <span className="text-xs font-bold uppercase tracking-widest text-[#00798C]">Get Started</span>
-        <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-zinc-900 max-w-xl leading-tight">
-          Ready to become a commuter pro?
-        </h2>
-        <p className="text-sm sm:text-base text-zinc-500 max-w-sm">
-          Join now and start making sense of your daily commute with data that's actually yours.
-        </p>
-        <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 mt-2">
-          <Link href="/register">
-            <button className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[#30638E] hover:bg-[#00798C] text-white font-semibold text-sm transition shadow-md">
-              Create Free Account
-            </button>
-          </Link>
-          <Link href="/login">
-            <button className="w-full sm:w-auto px-6 py-3 rounded-xl border-2 border-[#30638E] text-[#30638E] hover:bg-[#30638E] hover:text-white font-semibold text-sm transition">
-              Sign In
-            </button>
-          </Link>
-        </div>
-      </section>
+      <section className="relative flex-1 flex flex-col items-center justify-center text-center px-4 py-20 sm:py-28 gap-5 sm:gap-6 overflow-hidden">
+  
+  {/* Background image */}
+  <Image
+    src="/bg1.png"
+    alt="city background"
+    fill
+    className="object-cover brightness-[0.35]"
+    priority
+  />
+
+  {/* All content needs z-10 to sit above the image */}
+      <span className="relative z-10 text-xs font-bold uppercase tracking-widest text-[#EDAE49]">Get Started</span>
+      <h2 className="relative z-10 text-3xl sm:text-4xl md:text-5xl font-bold text-white max-w-xl leading-tight">
+        Ready to become a commuter pro?
+      </h2>
+      <p className="relative z-10 text-sm sm:text-base text-white/70 max-w-sm">
+        Join now and start making sense of your daily commute with data that's actually yours.
+      </p>
+      <div className="relative z-10 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 mt-2">
+        <Link href="/register">
+          <button className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[#EDAE49] hover:bg-[#EDAE49]/90 text-zinc-900 font-semibold text-sm transition shadow-md">
+            Create Free Account
+          </button>
+        </Link>
+        <Link href="/login">
+          <button className="w-full sm:w-auto px-6 py-3 rounded-xl border-2 border-white/50 text-white hover:bg-white/10 font-semibold text-sm transition">
+            Sign In
+          </button>
+        </Link>
+      </div>
+    </section>
 
       {/* ── Footer ── */}
       <footer className="bg-zinc-900 text-zinc-500 text-xs text-center py-5 px-4">
