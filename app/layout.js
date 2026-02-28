@@ -14,6 +14,7 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "CommutePro",
   description: "The Commuter's Best Friend",
+  icon: "/commutepro_icon.svg"
 };
 
 export default function RootLayout({ children }) {

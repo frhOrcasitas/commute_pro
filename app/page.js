@@ -6,9 +6,14 @@ export default function Home() {
     <div className="flex flex-col min-h-screen font-sans">
 
       {/* ── Navbar ── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-5 sm:px-8 py-4 bg-[#30638E] shadow-md">
+      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-5 sm:px-8 py-4 bg-[#003d5b] shadow-md">
         <Link href="/" className="text-white text-xl font-bold tracking-tight">
-          CommutePro
+          <Image
+              src="/commutepro_full.svg"
+              width={128}
+              height={32}
+              alt="commutepro logo"
+              />
         </Link>
         <div className="flex items-center gap-3 sm:gap-4">
           <a href="#how-it-works" className="text-white/80 hover:text-white text-sm font-medium transition hidden sm:block">

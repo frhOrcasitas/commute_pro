@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { supabase } from "@/app/lib/supabaseClient";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function Login() {
   const router = useRouter();
@@ -35,9 +36,14 @@ export default function Login() {
     <div className="min-h-screen flex flex-col bg-gray-50 font-sans">
 
       {/* Nav */}
-      <nav className="flex items-center px-5 sm:px-8 py-4 bg-[#30638E] shadow-md">
+      <nav className="flex items-center px-5 sm:px-8 py-4 bg-[#003D5B] shadow-md">
         <Link href="/" className="text-white text-xl font-bold tracking-tight">
-          CommutePro
+          <Image
+              src="/commutepro_full.svg"
+              width={128}
+              height={32}
+              alt="commutepro logo"
+              />
         </Link>
       </nav>
 
